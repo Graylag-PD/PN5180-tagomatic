@@ -17,6 +17,9 @@ firmware that interfaces with the NXP PN5180 NFC module.
 My terrible prototype board:
 ![Board](board.jpg)
 
+Graylag's Pico2 board
+![Board](pico2.jpg)
+
 ## Printed case
 I've made a simple 3D printable case for it
 [here](https://www.printables.com/model/1545289-pn5180-tagomatic-case).
@@ -33,21 +36,21 @@ freestanding case too.
 
 ## Pin Connections
 
-| PN5180 Pin | Raspberry Pi Pico Zero Pin |
-|------------|----------------------------|
-| MISO       | GP0 (SPI0 RX)              |
-| NSS        | GP1                        |
-| SCK        | GP2 (SPI0 SCK)             |
-| MOSI       | GP3 (SPI0 TX)              |
-| BUSY       | GP4                        |
-| RST        | GP7                        |
-| +3.3V      | 3.3V                       |
-| +5V        | 5V                         |
-| GND        | GND                        |
-| GPIO       | -                          |
-| IRQ        | GP6                        |
-| AUX        | -                          |
-| REQ        | (GP9)                      |
+| PN5180 Pin | Raspberry Pi Pico Zero Pin | Raspberry Pi Pico / Pico 2 |
+|------------|----------------------------|----------------------------|
+| MISO       | GP0 (SPI0 RX)              | GP16                       |
+| NSS        | GP1                        | GP17                       |
+| SCK        | GP2 (SPI0 SCK)             | GP18                       |
+| MOSI       | GP3 (SPI0 TX)              | GP19                       |
+| BUSY       | GP4                        | GP22                       |
+| RST        | GP7                        | GP28                       |
+| +3.3V      | 3.3V                       | 3.3V                       |
+| +5V        | 5V                         | 5V                         |
+| GND        | GND                        | GND                        |
+| GPIO       | -                          | -                          |
+| IRQ        | GP6                        | GP21                       |
+| AUX        | -                          | -                          |
+| REQ        | (GP9)                      | GP20                       |
 
 The SPI interface is configured to run at 2 Mbps.
 It might be too fast for some hardware (depending on the cables
@@ -69,19 +72,22 @@ The firmware requires the FastLED and SimpleRPC libraries.
 ### Using Arduino IDE
 
 1. Install the Arduino IDE
-2. Add Raspberry Pi Pico board support:
+2. Add following link to Additional Boards Manager: https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json
+3. Add Raspberry Pi Pico board support:
    - Go to Tools > Board > Board Manager
-   - Search for "pico" and install "Arduino Mbed OS RP2040 Boards by Arduino" (version 4.4.1 was used).
-3. Install the libraries:
+   - Search for "pico" and install "Raspberry Pi Pico/RP2040/RP2350 by Earle F. Philhower, III" (version 5.5.0 was used).
+4. Install the libraries:
   - Go to Sketch > Include Library > Manage Libraries
   - Search for the libraries and install them.
-4. Press the select board pulldown: "Select Other Board and Port"
-5. Search for pico, choose "Raspberry Pi Pico"
-5. Select Port: Tools > Port > (your Pico's port)
-6. Upload the sketch (the arrow)
+5. Press the select board pulldown: "Select Other Board and Port"
+6. Search for pico, choose "Raspberry Pi Pico"
+7. Select Port: Tools > Port > (your Pico's port)
+8. Uncomment #define with your board type (hint, if you have Pico W, Pico 2 or Pico 2W, choose BOARD_PICO
+9. Upload the sketch (the arrow)
 
 ### Using Arduino CLI
 
+(Outdated!!!)
 ```bash
 arduino-cli config init
 arduino-cli core update-index

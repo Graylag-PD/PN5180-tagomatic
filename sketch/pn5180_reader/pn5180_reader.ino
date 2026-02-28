@@ -5,21 +5,38 @@
  * PN5180 RFID Reader for Raspberry Pi Pico
  *
  * Dependencies:
- * - FastLED (3.10.3)
+ * - FastLED (3.10.3) - For Pi Pico Zero
  * - SimpleRPC (3.2.0)
+ * - JLed (4.15.0) - For Pi Pico/Pico 2
  *
  * This sketch implements a USB-based RFID reader interface.
  * It communicates with the host computer over USB serial using the
  * SimpleRPC protocol.
  *
  * The code is based on https://www.nxp.com/docs/en/data-sheet/PN5180A0XX-C1-C2.pdf
+ *
+ * Modified for Pi board core by Earle Philhower https://github.com/earlephilhower/arduino-pico 
  */
 
 #include <Arduino.h>
 #include <SPI.h>
-#define FASTLED_INTERNAL 1
-#include <FastLED.h>
 #include <simpleRPC.h>
+
+// Define which board shall be used. Uncomment just one
+#define BOARD_PICO  // Use also for Pico 2
+// #define BOARD_PICO_ZERO
+
+// Logic to handle board selection
+#if defined(BOARD_PICO) && defined(BOARD_PICO_ZERO)
+  #error "Error: Only one board shall be defined (PICO or PICO_ZERO)!"
+#elif !defined(BOARD_PICO) && !defined(BOARD_PICO_ZERO)
+  #error "Error: Board must be defined!"
+#elif defined(BOARD_PICO_ZERO)
+  #include <FastLED.h>
+  #define FASTLED_INTERNAL 1
+#elif defined(BOARD_PICO)
+  #include <jled.h>
+#endif
 
 // Error codes for negative return values
 #define ERR_PROTOCOL 1
@@ -69,40 +86,97 @@ static const uint8_t PN5180_RF_OFF = 0x17;
 static const uint8_t PN5180_CONFIGURE_TESTBUS_DIGITAL = 0x18;
 static const uint8_t PN5180_CONFIGURE_TESTBUS_ANALOG = 0x19;
 
-// Pin definitions for Raspberry Pi Pico Zero
-static const unsigned long PN5180_MISO = 0u;
-static const unsigned long PN5180_MOSI = 3u;
-static const unsigned long PN5180_SCK = 2u;
-static const unsigned long PN5180_NSS = 1u;  // SPI, negative chip select
-static const unsigned long PN5180_BUSY = 4u;
-static const unsigned long PN5180_RST = 7u;  // Reset
-static const unsigned long PN5180_IRQ = 6u;
+#if defined(BOARD_PICO_ZERO)
+  // Pin definitions for Raspberry Pi Pico Zero
+  static const unsigned long PN5180_MISO = 0u;
+  static const unsigned long PN5180_MOSI = 3u;
+  static const unsigned long PN5180_SCK = 2u;
+  static const unsigned long PN5180_NSS = 1u;  // SPI, negative chip select
+  static const unsigned long PN5180_BUSY = 4u;
+  static const unsigned long PN5180_RST = 7u;  // Reset
+  static const unsigned long PN5180_IRQ = 6u;
+  static const unsigned long PN5180_REQ = 9u;
 
-static const unsigned long LED_DATA_PIN = 16;
+  static const unsigned long LED_DATA_PIN = 16;
 
-// Colors:
-static const CRGB WEAK_RED = 0x010000;
-static const CRGB RED = 0x100000;
-static const CRGB DIMMER_RED = 0x080000;
-static const CRGB GREEN = 0x000800;
-static const CRGB DIMMER_GREEN = 0x000200;
-static const CRGB BLUE = 0x000008;
+    // Colors:
+  static const CRGB WEAK_RED = 0x010000;
+  static const CRGB RED = 0x100000;
+  static const CRGB DIMMER_RED = 0x080000;
+  static const CRGB GREEN = 0x000800;
+  static const CRGB DIMMER_GREEN = 0x000200;
+  static const CRGB BLUE = 0x000008;
 
-static const CRGB COLOR_DISCONNECTED = WEAK_RED;
-static const CRGB COLOR_TX = RED;
-static const CRGB COLOR_RX = BLUE;
+  static const CRGB COLOR_DISCONNECTED = WEAK_RED;
+  static const CRGB COLOR_TX = RED;
+  static const CRGB COLOR_RX = BLUE;
 
-static CRGB led_value = COLOR_DISCONNECTED;
+  static CRGB led_value = COLOR_DISCONNECTED;
 
-static arduino::MbedSPI PN_SPI(PN5180_MISO, PN5180_MOSI, PN5180_SCK);
-static const SPISettings PN_SPI_SETTINGS(2000000, MSBFIRST, SPI_MODE0);
-
-static void set_color(CRGB color) {
+  static void set_color(CRGB color) {
   if (led_value != color) {
     led_value = color;
     FastLED.show();
   }
-}
+
+#elif defined(BOARD_PICO)
+  // Pin definitions for Raspberry Pi Pico
+  static const unsigned long PN5180_MISO = 16u;
+  static const unsigned long PN5180_MOSI = 19u;
+  static const unsigned long PN5180_SCK = 18u;
+  static const unsigned long PN5180_NSS = 17u;  // SPI, negative chip select
+  static const unsigned long PN5180_BUSY = 22u;
+  static const unsigned long PN5180_RST = 28u;  // Reset
+  static const unsigned long PN5180_IRQ = 21u;
+  static const unsigned long PN5180_REQ = 20u;
+  static const unsigned long LED_PIN = 25;
+
+  // LED effects
+  enum LEDEffect {
+  ON,
+  OFF,
+  BLINK,
+  SBLINK,
+  BREATHE
+  };
+  
+  auto led = JLed(LED_PIN).Off();
+  LEDEffect setEffect;
+
+  static void set_led(LEDEffect effect) {
+    if (effect == setEffect) {
+      led.Update();
+    }
+    else {
+      setEffect = effect;
+      switch (effect) {
+      case ON: 
+        led.On().Update();
+        break;
+      case BLINK: 
+        led.Blink(500, 500).Forever().Update();
+        break;
+      case SBLINK: 
+        led.Blink(100, 900).Forever().Update();
+        break;
+      case BREATHE: 
+        led.Breathe(2000).Forever().Update();
+        break;
+      case OFF: 
+      default:
+        led.Off().Update();
+        break;
+
+    }    
+    }
+    
+  }
+#endif
+
+
+static SPIClass& PN_SPI = SPI;
+static const SPISettings PN_SPI_SETTINGS(2000000, MSBFIRST, SPI_MODE0);
+
 
 static void log(const char msg[]) {
   // Serial.println(msg);
@@ -197,7 +271,7 @@ static int recv_spi_data(uint8_t* buffer, size_t buffer_len) {
  */
 static void reset() {
   digitalWrite(PN5180_RST, LOW);
-  delay(10);
+  delay(50);
   digitalWrite(PN5180_RST, HIGH);
   delay(50);
 }
@@ -455,7 +529,12 @@ static int16_t write_tx_data(Vector<uint8_t>& values) {
  * Negative return numbers are errors.
  */
 static int16_t send_data(uint8_t bits, Vector<uint8_t>& values) {
-  set_color(COLOR_TX);
+  #if defined(BOARD_PICO_ZERO)
+    set_color(COLOR_TX);
+  #elif defined(BOARD_PICO)
+    set_led(ON);
+  #endif
+ 
   uint8_t buffer[262];
   if (values.size > 260) {
     log("Too much data to write");
@@ -761,7 +840,11 @@ static bool is_irq_set() {
  * Returns IRQ status.
  */
 static bool wait_for_irq(unsigned long timeout) {
-  set_color(COLOR_RX);
+  #if defined(BOARD_PICO_ZERO)
+    set_color(COLOR_RX);
+  #elif defined(BOARD_PICO)
+    set_led(BLINK);
+  #endif
   auto start = millis();
   while ((millis() - start) <= timeout) {
     if (is_irq_set()) {
@@ -778,8 +861,12 @@ static bool wait_for_irq(unsigned long timeout) {
 /////////////////////////
 
 void setup() {
-  FastLED.addLeds<NEOPIXEL, LED_DATA_PIN>(&led_value, 1);
-  FastLED.show();
+  #if defined(BOARD_PICO_ZERO)
+    FastLED.addLeds<NEOPIXEL, LED_DATA_PIN>(&led_value, 1);
+    FastLED.show();
+  #elif defined(BOARD_PICO)
+    ;
+  #endif
 
   // Initialize USB serial communication
   Serial.begin(115200);
@@ -788,18 +875,25 @@ void setup() {
     ;  // Wait for serial port to connect
   }
 
+  // Initialize SPI
+  SPI.setSCK(PN5180_SCK);
+  SPI.setTX(PN5180_MOSI);
+  SPI.setRX(PN5180_MISO);
+  PN_SPI.begin();
+
   // Initialize pins
   pinMode(PN5180_NSS, OUTPUT);
   digitalWrite(PN5180_NSS, HIGH);
   pinMode(PN5180_BUSY, INPUT);
   pinMode(PN5180_RST, OUTPUT);
   digitalWrite(PN5180_RST, HIGH);
+  pinMode(PN5180_REQ, OUTPUT);
+  digitalWrite(PN5180_REQ, LOW);
 
   // Reset PN5180
   reset();
 
-  // Initialize SPI
-  PN_SPI.begin();
+
 }
 
 void loop() {
@@ -833,18 +927,28 @@ void loop() {
 
   static bool has_reset_after_disconnect = false;
   if (!Serial) {
-    set_color(COLOR_DISCONNECTED);
+    #if defined(BOARD_PICO_ZERO)
+      set_color(COLOR_DISCONNECTED);
+    #elif defined(BOARD_PICO)
+      set_led(SBLINK);
+    #endif
     if (!has_reset_after_disconnect) {
       reset();
       has_reset_after_disconnect = true;
       delay(50);
     }
   } else {
+    #if defined(BOARD_PICO_ZERO)
     auto val = millis() % 1500;
     if (val > 750) {
       val = 1500 - val;
     }
-    set_color((1 + val * 0x9 / 750) << 8);
+    
+      set_color((1 + val * 0x9 / 750) << 8);
+    #elif defined(BOARD_PICO)
+      set_led(BREATHE);
+    #endif
     has_reset_after_disconnect = false;
   }
+
 }
